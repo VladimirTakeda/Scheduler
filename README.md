@@ -25,14 +25,14 @@ stateDiagram-v2
     idle --> waiting_reminder_text: /remind
     idle --> idle: /list, /cancel, unknown
     waiting_timezone --> idle: "Таймзона выбрана"
-    waiting_reminder_text --> waiting_week: "Текст напоминания введён"
-    waiting_reminder_text --> idle: /cancel
     waiting_week --> waiting_day: "Неделя выбрана"
     waiting_week --> idle: /cancel
     waiting_day --> waiting_time: "День выбран"
     waiting_day --> idle: /cancel
-    waiting_time --> idle: "Время выбрано, Напоминание создано"
+    waiting_time --> waiting_reminder_text: "Время выбрано"
     waiting_time --> idle: /cancel
+    waiting_reminder_text --> idle: "Текст напоминания введён, Напоминание создано"
+    waiting_reminder_text --> idle: /cancel
 ```
 
 ## Быстрый старт
