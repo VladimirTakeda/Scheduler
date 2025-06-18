@@ -15,14 +15,12 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 	messageID := update.CallbackQuery.Message.MessageID
 
 	if len(data) > 7 && data[:7] == "tzpage_" {
-		// Пагинация по часовым поясам
 		page, _ := strconv.Atoi(data[7:])
 		edit := tgbotapi.NewEditMessageReplyMarkup(chatID, messageID, pkg.TimezoneKeyboard(page))
 		_, _ = bot.Send(edit)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "OK"}, nil
 	}
 	if len(data) > 3 && data[:3] == "tz_" {
-		// Выбор часового пояса
 		tz := data[3:]
 		err := dbStorage.SaveUserTimezone(update.CallbackQuery.From.ID, tz)
 		if err != nil {

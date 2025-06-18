@@ -20,19 +20,21 @@ InterviewScheduler — это Telegram-бот для создания и упр�
 
 ```mermaid
 stateDiagram-v2
-    [*] --> idle
-    idle --> waiting_timezone: /start, /timezone
-    idle --> waiting_reminder_text: /remind
-    idle --> idle: /list, /cancel, unknown
-    waiting_timezone --> idle: "Таймзона выбрана"
+    [*] --> idle: /start
+    idle --> waiting_timezone: /timezone
+    waiting_timezone --> idle2:
+    idle2 --> remind: /remind
+    idle2 --> list: /list
+    idle2 --> timezone: /timezone
+    remind --> waiting_week: 
     waiting_week --> waiting_day: "Неделя выбрана"
-    waiting_week --> idle: /cancel
+    waiting_week --> idle2: /cancel
     waiting_day --> waiting_time: "День выбран"
-    waiting_day --> idle: /cancel
+    waiting_day --> idle2: /cancel
     waiting_time --> waiting_reminder_text: "Время выбрано"
-    waiting_time --> idle: /cancel
-    waiting_reminder_text --> idle: "Текст напоминания введён, Напоминание создано"
-    waiting_reminder_text --> idle: /cancel
+    waiting_time --> idle2: /cancel
+    waiting_reminder_text --> idle2: "Текст напоминания введён, Напоминание создано"
+    waiting_reminder_text --> idle2: /cancel
 ```
 
 ## Быстрый старт
