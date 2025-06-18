@@ -22,11 +22,11 @@ InterviewScheduler — это Telegram-бот для создания и упр�
 stateDiagram-v2
     [*] --> idle: /start
     idle --> waiting_timezone: /timezone
-    waiting_timezone --> idle2:
+    waiting_timezone --> idle2
     idle2 --> remind: /remind
     idle2 --> list: /list
     idle2 --> timezone: /timezone
-    remind --> waiting_week: 
+    remind --> waiting_week
     waiting_week --> waiting_day: "Неделя выбрана"
     waiting_week --> idle2: /cancel
     waiting_day --> waiting_time: "День выбран"
