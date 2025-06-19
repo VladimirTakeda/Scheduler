@@ -19,7 +19,7 @@ func HandleSchedulerEvent(storage storage.Storage, reminderID, userID string) (e
 	reminder, err := storage.GetReminderByID(reminderID, userID)
 	if err != nil {
 		log.Printf("Failed to get reminder: %v", err)
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to fetch reminder"}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "Failed to fetch reminder"}, nil
 	}
 
 	uid, _ := strconv.ParseInt(reminder.UserID, 10, 64)
@@ -27,7 +27,7 @@ func HandleSchedulerEvent(storage storage.Storage, reminderID, userID string) (e
 	_, err = bot.Send(msg)
 	if err != nil {
 		log.Printf("Failed to send reminder: %v", err)
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Failed to send Telegram message"}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "Failed to send Telegram message"}, nil
 	}
 
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: "Reminder sent"}, nil

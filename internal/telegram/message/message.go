@@ -56,7 +56,7 @@ func ProcessMessageUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка получения состояния пользователя. Попробуйте позже.")
 		_, err := bot.Send(msg)
 		if err != nil {
-			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "tg error"}, err
+			return events.APIGatewayProxyResponse{StatusCode: 200, Body: "tg error"}, err
 		}
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "Error"}, nil
 	}
@@ -76,7 +76,7 @@ func ProcessMessageUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 	if newState != userState.State {
 		err := dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.Message.From.ID, 10), State: newState})
 		if err != nil {
-			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "tg error"}, err
+			return events.APIGatewayProxyResponse{StatusCode: 200, Body: "tg error"}, err
 		}
 	}
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: "OK"}, nil
@@ -122,9 +122,11 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage sto
 func handleIdle2State(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
 	switch update.Message.Text {
 	case "/remind":
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите неделю:")
-		// Здесь можно добавить клавиатуру выбора недели
-		bot.Send(msg)
+		msg := pkg.WeekSelectionButtons(update.Message.Chat.ID)
+		_, err := bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send week selection: %v", err)
+		}
 		return StateWaitingWeek, nil
 	case "/list":
 		err := pkg.HandleListReminders(bot, dbStorage, update.Message.Chat.ID, update.Message.From.ID)
@@ -139,8 +141,36 @@ func handleIdle2State(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage st
 		msg.ReplyMarkup = pkg.TimezoneKeyboard(0)
 		bot.Send(msg)
 		return StateWaitingTimezone, nil
+	case "/start":
+		err := dbStorage.SaveUser(
+			update.Message.From.ID,
+			update.Message.From.FirstName,
+			update.Message.From.UserName,
+			"Europe/Bratislava",
+		)
+		if err != nil {
+			log.Printf("Failed to save user: %v", err)
+		}
+
+		preview := "Привет! Я твой Telegram бот на AWS Lambda. Я могу создавать напоминания и присылать их тебе в нужное время.\n\n" +
+			"Давай установим твою таймзону, нажми /timezone:\n"
+
+		keyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton("/timezone"),
+			),
+		)
+		keyboard.ResizeKeyboard = true
+
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, preview)
+		msg.ReplyMarkup = keyboard
+		_, err = bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send message: %v", err)
+		}
+		return StateWaitingTimezone, nil
 	default:
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /remind /timezone /list")
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /remind /timezone /list /start")
 		bot.Send(msg)
 		return StateIdle2, nil
 	}
@@ -166,8 +196,11 @@ func handleWaitingWeek(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage s
 		bot.Send(msg)
 		return StateIdle2, nil
 	}
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку недели пожалуйста:")
-	bot.Send(msg)
+	msg := pkg.WeekSelectionButtons(update.Message.Chat.ID)
+	_, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("Failed to send week selection: %v", err)
+	}
 	return StateWaitingWeek, nil
 }
 

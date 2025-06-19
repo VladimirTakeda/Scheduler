@@ -18,3 +18,15 @@ func NewDynamoStorage() *DynamoStorage {
 	}
 	return &DynamoStorage{dynamodb.NewFromConfig(cfg)}
 }
+
+type ProcessedEventRepo struct {
+	Client *dynamodb.Client
+}
+
+func NewProcessedEventRepo() *ProcessedEventRepo {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+	return &ProcessedEventRepo{Client: dynamodb.NewFromConfig(cfg)}
+}

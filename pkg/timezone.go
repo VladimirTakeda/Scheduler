@@ -16,7 +16,7 @@ var timezonesData = []struct {
 	{"Чикаго", "America/Chicago", -5},
 	{"Нью-Йорк", "America/New_York", -4},
 	{"Торонто", "America/Toronto", -4},
-	{"Сан-Па��лу", "America/Sao_Paulo", -3},
+	{"Сан-Паулу", "America/Sao_Paulo", -3},
 	{"Лондон", "Europe/London", 1},
 	{"Братислава", "Europe/Bratislava", 2},
 	{"Берлин", "Europe/Berlin", 2},

@@ -13,3 +13,8 @@ type Storage interface {
 	GetUserReminders(userID int64) ([]Reminder, error)
 	DeleteReminder(reminderID, userID string) error
 }
+
+type ProcessedEventStorage interface {
+	IsEventProcessed(tgUpdateID string) (bool, error)
+	MarkEventProcessed(tgUpdateID string) error
+}

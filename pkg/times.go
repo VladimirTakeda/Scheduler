@@ -43,11 +43,11 @@ func ProcessTimes(bot *tgbotapi.BotAPI, update tgbotapi.Update, data string, cha
 	}
 }
 
-func HandleTimeSelection(bot *tgbotapi.BotAPI, dbStorage storage.Storage, update tgbotapi.Update, data string, chatID int64, messageID int) error {
+func HandleTimeSelection(bot *tgbotapi.BotAPI, dbStorage storage.Storage, update tgbotapi.Update, data string, chatID int64, messageID int) (*storage.UserState, error) {
 	// callbackData := fmt.Sprintf("time_%d_%d_%s", weekOffset, dayNumber, timeStr)
 	parts := strings.Split(data, "_")
 	if len(parts) != 4 {
-		return fmt.Errorf(fmt.Sprintf("invalid time data format, %s", data))
+		return nil, fmt.Errorf(fmt.Sprintf("invalid time data format, %s", data))
 	}
 
 	week := parts[1]
@@ -56,7 +56,7 @@ func HandleTimeSelection(bot *tgbotapi.BotAPI, dbStorage storage.Storage, update
 
 	userProfile, err := dbStorage.GetUser(update.CallbackQuery.From.ID)
 	if err != nil || userProfile == nil || userProfile.Timezone == "" {
-		return fmt.Errorf("timezone not set for user")
+		return nil, fmt.Errorf("timezone not set for user")
 	}
 
 	userState := &storage.UserState{
@@ -71,7 +71,7 @@ func HandleTimeSelection(bot *tgbotapi.BotAPI, dbStorage storage.Storage, update
 
 	err = dbStorage.SaveUserState(userState)
 	if err != nil {
-		return fmt.Errorf("failed to save user state: %v", err)
+		return userState, fmt.Errorf("failed to save user state: %v", err)
 	}
 
 	edit := tgbotapi.NewEditMessageText(chatID, messageID,
@@ -80,14 +80,14 @@ func HandleTimeSelection(bot *tgbotapi.BotAPI, dbStorage storage.Storage, update
 
 	_, err = bot.Send(edit)
 	if err != nil {
-		return fmt.Errorf("failed to edit message: %v", err)
+		return userState, fmt.Errorf("failed to edit message: %v", err)
 	}
 
 	msg := tgbotapi.NewMessage(chatID, "📝 Введите текст вашего напоминания:\n\n(или /cancel для отмены)")
 	_, err = bot.Send(msg)
 	if err != nil {
-		return fmt.Errorf("failed to send instruction message: %v", err)
+		return userState, fmt.Errorf("failed to send instruction message: %v", err)
 	}
 
-	return nil
+	return userState, nil
 }

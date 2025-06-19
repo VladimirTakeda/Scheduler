@@ -27,7 +27,19 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 		if err != nil {
 			log.Printf("Failed to save timezone: %v", err)
 		}
+		keyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton("/start"),
+				tgbotapi.NewKeyboardButton("/list"),
+				tgbotapi.NewKeyboardButton("/remind"),
+				tgbotapi.NewKeyboardButton("/timezone"),
+				tgbotapi.NewKeyboardButton("/cancel"),
+			),
+		)
+		keyboard.ResizeKeyboard = true
+
 		msg := tgbotapi.NewMessage(chatID, "Часовой пояс установлен: "+tz)
+		msg.ReplyMarkup = keyboard
 		_, _ = bot.Send(msg)
 		// Update user state to idle2 after setting timezone
 		err = dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateIdle2})
@@ -58,11 +70,11 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 	}
 
 	if len(data) > 5 && data[:5] == "time_" {
-		err := pkg.HandleTimeSelection(bot, dbStorage, update, data, chatID, messageID)
+		userState, err := pkg.HandleTimeSelection(bot, dbStorage, update, data, chatID, messageID)
 		if err != nil {
 			log.Printf("Failed to handle time selection: %v", err)
 		}
-		dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateWaitingReminderText})
+		dbStorage.SaveUserState(userState)
 	}
 	if len(data) > 7 && data[:7] == "delete_" {
 		err := pkg.HandleDeleteReminder(bot, dbStorage, update, data, chatID)
