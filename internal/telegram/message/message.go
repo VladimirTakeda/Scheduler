@@ -24,8 +24,9 @@ func initScheduler() {
 }
 
 const (
-	StateIdle                = "idle"
-	StateWaitingTimezone     = "waiting_timezone"
+	StateIdle                = "idle"             // Initial state after /start command, need timezine to proceed
+	StateIdle2               = "idle2"            // State after timezone is set, can create reminders
+	StateWaitingTimezone     = "waiting_timezone" // send buttons to user to select timezone
 	StateWaitingWeek         = "waiting_week"
 	StateWaitingDay          = "waiting_day"
 	StateWaitingTime         = "waiting_time"
@@ -36,6 +37,7 @@ type StateHandler func(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage s
 
 var stateHandlers = map[string]StateHandler{
 	StateIdle:                handleIdleState,
+	StateIdle2:               handleIdle2State,
 	StateWaitingReminderText: handleWaitingReminderText,
 	StateWaitingTimezone:     handleWaitingTimezone,
 	StateWaitingWeek:         handleWaitingWeek,
@@ -94,18 +96,11 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage sto
 		}
 
 		preview := "Привет! Я твой Telegram бот на AWS Lambda. Я могу создавать напоминания и присылать их тебе в нужное время.\n\n" +
-			"Доступные команды:\n" +
-			"/remind — создать новое напоминание\n" +
-			"/list — показать все твои напоминания\n" +
-			"/cancel — отменить создание напоминания\n" +
-			"/timezone — выбрать или изменить часовой пояс\n"
+			"Давай установим твою таймзону, нажми /timezone:\n"
 
 		keyboard := tgbotapi.NewReplyKeyboard(
 			tgbotapi.NewKeyboardButtonRow(
-				tgbotapi.NewKeyboardButton("/start"),
-				tgbotapi.NewKeyboardButton("/remind"),
-				tgbotapi.NewKeyboardButton("/list"),
-				tgbotapi.NewKeyboardButton("/cancel"),
+				tgbotapi.NewKeyboardButton("/timezone"),
 			),
 		)
 		keyboard.ResizeKeyboard = true
@@ -117,21 +112,20 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage sto
 			log.Printf("Failed to send message: %v", err)
 		}
 		return StateWaitingTimezone, nil
-	case "/remind":
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Введите текст напоминания:")
+	default:
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /start")
 		bot.Send(msg)
-		return StateWaitingReminderText, nil
-	case "/cancel":
-		err := dbStorage.ClearUserState(update.Message.From.ID)
-		if err != nil {
-			log.Printf("Failed to clear user state: %v", err)
-		}
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
-		_, err = bot.Send(msg)
-		if err != nil {
-			log.Printf("Failed to send message: %v", err)
-		}
 		return StateIdle, nil
+	}
+}
+
+func handleIdle2State(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
+	switch update.Message.Text {
+	case "/remind":
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите неделю:")
+		// Здесь можно добавить клавиатуру выбора недели
+		bot.Send(msg)
+		return StateWaitingWeek, nil
 	case "/list":
 		err := pkg.HandleListReminders(bot, dbStorage, update.Message.Chat.ID, update.Message.From.ID)
 		if err != nil {
@@ -139,31 +133,71 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage sto
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Произошла ошибка при получении списка напоминаний.")
 			bot.Send(msg)
 		}
-		return StateIdle, nil
+		return StateIdle2, nil
 	case "/timezone":
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите ваш часовой пояс:")
 		msg.ReplyMarkup = pkg.TimezoneKeyboard(0)
 		bot.Send(msg)
-		return StateIdle, nil
+		return StateWaitingTimezone, nil
 	default:
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /remind /timezone /list")
 		bot.Send(msg)
-		return StateIdle, nil
+		return StateIdle2, nil
 	}
+}
+
+func handleWaitingTimezone(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
+	switch update.Message.Text {
+	case "/timezone":
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите ваш часовой пояс:")
+		msg.ReplyMarkup = pkg.TimezoneKeyboard(0)
+		bot.Send(msg)
+		return StateWaitingTimezone, nil
+	default:
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /timezone, чтобы выбрать часовой пояс.")
+		bot.Send(msg)
+		return StateWaitingTimezone, nil
+	}
+}
+
+func handleWaitingWeek(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
+	if update.Message.Text == "/cancel" {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
+		bot.Send(msg)
+		return StateIdle2, nil
+	}
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку недели пожалуйста:")
+	bot.Send(msg)
+	return StateWaitingWeek, nil
+}
+
+func handleWaitingDay(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
+	if update.Message.Text == "/cancel" {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
+		bot.Send(msg)
+		return StateIdle2, nil
+	}
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку дня пожалуйста:")
+	bot.Send(msg)
+	return StateWaitingDay, nil
+}
+
+func handleWaitingTime(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
+	if update.Message.Text == "/cancel" {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
+		bot.Send(msg)
+		return StateIdle2, nil
+	}
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку времени пожалуйста:")
+	bot.Send(msg)
+	return StateWaitingTime, nil
 }
 
 func handleWaitingReminderText(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
 	if update.Message.Text == "/cancel" {
-		err := dbStorage.ClearUserState(update.Message.From.ID)
-		if err != nil {
-			log.Printf("Failed to clear user state: %v", err)
-		}
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
-		_, err = bot.Send(msg)
-		if err != nil {
-			log.Printf("Failed to send message: %v", err)
-		}
-		return StateIdle, nil
+		bot.Send(msg)
+		return StateIdle2, nil
 	}
 	lambdaArn := os.Getenv("LAMBDA_ARN")
 	roleArn := os.Getenv("SCHEDULER_ROLE_ARN")
@@ -176,33 +210,7 @@ func handleWaitingReminderText(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbS
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Произошла ошибка при сохранении напоминания. Попробуйте еще раз.")
 		bot.Send(msg)
 	}
-	return StateIdle, nil
-}
-
-func handleWaitingTimezone(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
-	// Здесь логика выбора и сохранения таймзоны
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Таймзона установлена!")
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Текст напоминания введён, напоминание создано!")
 	bot.Send(msg)
-	return StateIdle, nil
-}
-
-func handleWaitingWeek(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
-	// Здесь логика выбора и сохранения недели
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неделя установлена!")
-	bot.Send(msg)
-	return StateIdle, nil
-}
-
-func handleWaitingDay(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
-	// Здесь логика выбора и сохранения дня
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "День установлен!")
-	bot.Send(msg)
-	return StateIdle, nil
-}
-
-func handleWaitingTime(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
-	// Здесь логика выбора и сохранения времени
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Время установлено!")
-	bot.Send(msg)
-	return StateIdle, nil
+	return StateIdle2, nil
 }
