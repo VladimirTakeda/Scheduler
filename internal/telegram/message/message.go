@@ -177,17 +177,18 @@ func handleIdle2State(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage st
 }
 
 func handleWaitingTimezone(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
-	switch update.Message.Text {
-	case "/timezone":
+	if update.Message.Text == "/timezone" {
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите ваш часовой пояс:")
 		msg.ReplyMarkup = pkg.TimezoneKeyboard(0)
 		bot.Send(msg)
 		return StateWaitingTimezone, nil
-	default:
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /timezone, чтобы выбрать часовой пояс.")
-		bot.Send(msg)
-		return StateWaitingTimezone, nil
 	}
+	if update.Message.Text == "/cancel" {
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выбор часового пояса отменён.")
+		bot.Send(msg)
+		return StateIdle2, nil
+	}
+	return StateWaitingTimezone, nil
 }
 
 func handleWaitingWeek(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage storage.Storage, userState *storage.UserState) (string, error) {
@@ -195,11 +196,6 @@ func handleWaitingWeek(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage s
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Создание напоминания отменено.")
 		bot.Send(msg)
 		return StateIdle2, nil
-	}
-	msg := pkg.WeekSelectionButtons(update.Message.Chat.ID)
-	_, err := bot.Send(msg)
-	if err != nil {
-		log.Printf("Failed to send week selection: %v", err)
 	}
 	return StateWaitingWeek, nil
 }
@@ -210,8 +206,6 @@ func handleWaitingDay(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage st
 		bot.Send(msg)
 		return StateIdle2, nil
 	}
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку дня пожалуйста:")
-	bot.Send(msg)
 	return StateWaitingDay, nil
 }
 
@@ -221,8 +215,6 @@ func handleWaitingTime(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage s
 		bot.Send(msg)
 		return StateIdle2, nil
 	}
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Нажмите на кнопку времени пожалуйста:")
-	bot.Send(msg)
 	return StateWaitingTime, nil
 }
 
@@ -243,7 +235,5 @@ func handleWaitingReminderText(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbS
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Произошла ошибка при сохранении напоминания. Попробуйте еще раз.")
 		bot.Send(msg)
 	}
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Текст напоминания введён, напоминание создано!")
-	bot.Send(msg)
 	return StateIdle2, nil
 }
