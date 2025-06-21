@@ -1,6 +1,7 @@
 package callback
 
 import (
+	"InterviewScheduler/internal/telegram/message"
 	"InterviewScheduler/pkg"
 	"InterviewScheduler/storage"
 	"github.com/aws/aws-lambda-go/events"
@@ -15,30 +16,43 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 	messageID := update.CallbackQuery.Message.MessageID
 
 	if len(data) > 7 && data[:7] == "tzpage_" {
-		// Пагинация по часовым поясам
 		page, _ := strconv.Atoi(data[7:])
 		edit := tgbotapi.NewEditMessageReplyMarkup(chatID, messageID, pkg.TimezoneKeyboard(page))
 		_, _ = bot.Send(edit)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "OK"}, nil
 	}
 	if len(data) > 3 && data[:3] == "tz_" {
-		// Выбор часового пояса
 		tz := data[3:]
 		err := dbStorage.SaveUserTimezone(update.CallbackQuery.From.ID, tz)
 		if err != nil {
 			log.Printf("Failed to save timezone: %v", err)
 		}
+		keyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton("/list"),
+				tgbotapi.NewKeyboardButton("/remind"),
+				tgbotapi.NewKeyboardButton("/timezone"),
+				tgbotapi.NewKeyboardButton("/cancel"),
+			),
+		)
+		keyboard.ResizeKeyboard = true
+
 		msg := tgbotapi.NewMessage(chatID, "Часовой пояс установлен: "+tz)
+		msg.ReplyMarkup = keyboard
 		_, _ = bot.Send(msg)
+		// Update user state to idle2 after setting timezone
+		err = dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateIdle2})
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "OK"}, nil
 	}
 
 	if data == "week_0" || data == "week_1" || data == "week_2" {
 		pkg.ProcessWeeks(bot, update, data, chatID, messageID)
+		dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateWaitingDay})
 	}
 
 	if data == "back_to_weeks" {
 		pkg.BackToWeeks(bot, update, chatID, messageID)
+		dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateWaitingWeek})
 	}
 
 	if len(data) > 4 && data[:4] == "day_" {
@@ -46,17 +60,20 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 		if err != nil {
 			return events.APIGatewayProxyResponse{}, err
 		}
+		dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateWaitingTime})
 	}
 
 	if len(data) > 13 && data[:13] == "back_to_days_" {
 		pkg.BackToDays(bot, update, data, chatID, messageID)
+		dbStorage.SaveUserState(&storage.UserState{UserID: strconv.FormatInt(update.CallbackQuery.From.ID, 10), State: message.StateWaitingDay})
 	}
 
 	if len(data) > 5 && data[:5] == "time_" {
-		err := pkg.HandleTimeSelection(bot, dbStorage, update, data, chatID, messageID)
+		userState, err := pkg.HandleTimeSelection(bot, dbStorage, update, data, chatID, messageID)
 		if err != nil {
 			log.Printf("Failed to handle time selection: %v", err)
 		}
+		dbStorage.SaveUserState(userState)
 	}
 	if len(data) > 7 && data[:7] == "delete_" {
 		err := pkg.HandleDeleteReminder(bot, dbStorage, update, data, chatID)

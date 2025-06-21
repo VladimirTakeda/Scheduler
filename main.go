@@ -16,11 +16,12 @@ func main() {
 
 func handler(ctx context.Context, event json.RawMessage) (events.APIGatewayProxyResponse, error) {
 	dynamoStorage := dynamodb2.NewDynamoStorage()
+	processedRepo := dynamodb2.NewProcessedEventRepo()
 
 	var req events.APIGatewayProxyRequest
 	if err := json.Unmarshal(event, &req); err == nil && req.Body != "" {
 		log.Printf("Received from API Gateway: %s", req.Body)
-		return internal.HandleTelegramRequest(req, dynamoStorage)
+		return internal.HandleTelegramRequest(req, dynamoStorage, processedRepo)
 	}
 
 	var payload struct {

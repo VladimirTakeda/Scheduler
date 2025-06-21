@@ -17,7 +17,7 @@ func ProcessKickedUpdate(_ *tgbotapi.BotAPI, update tgbotapi.Update, dbStorage s
 	// TODO: delete user reminders
 	err := dbStorage.DeleteUser(userID)
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "Can't delete user, try later"}, err
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: "Can't delete user, try later"}, err
 	}
 	return events.APIGatewayProxyResponse{StatusCode: 200, Body: "ok"}, nil
 }
