@@ -29,7 +29,6 @@ func ProcessCallbackQuery(bot *tgbotapi.BotAPI, update tgbotapi.Update, dbStorag
 		}
 		keyboard := tgbotapi.NewReplyKeyboard(
 			tgbotapi.NewKeyboardButtonRow(
-				tgbotapi.NewKeyboardButton("/start"),
 				tgbotapi.NewKeyboardButton("/list"),
 				tgbotapi.NewKeyboardButton("/remind"),
 				tgbotapi.NewKeyboardButton("/timezone"),
